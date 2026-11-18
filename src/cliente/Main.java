@@ -1,10 +1,9 @@
 package cliente;
 
-import java.io.IOException;
-import java.util.Scanner;
-
 import cliente.backend.ClientBackend;
 import cliente.backend.ClientListener;
+import java.io.IOException;
+import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) throws IOException {
@@ -30,7 +29,7 @@ public class Main {
         });
 
         backend.connect(nickname);
-        startFrontend(backend); // hoy vacío; el cable ya está puesto
+        startFrontend(backend); 
 
         while (keyboard.hasNextLine()) {
             String line = keyboard.nextLine();
@@ -38,12 +37,10 @@ public class Main {
                 backend.close();
                 break;
             }
-            backend.send(line); // global; privado: /msg Ana hola
+            backend.send(line); 
         }
     }
 
     private static void startFrontend(ClientBackend backend) {
-        // Mañana:
-        // new cliente.frontend.ClientGUI(backend).setVisible(true);
     }
 }

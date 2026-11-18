@@ -22,8 +22,8 @@ public class ClientBackend {
         output = new PrintWriter(
                 new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8), true);
 
-        new Thread(this::receive).start(); // antes del login
-        output.println(nickname);          // primera línea que espera el servidor
+        new Thread(this::receive).start(); 
+        output.println(nickname);          
     }
 
     private void receive() {
@@ -51,7 +51,7 @@ public class ClientBackend {
     }
 
     public synchronized void send(String text) {
-        output.println(text); // mensaje global
+        output.println(text); 
     }
 
     public synchronized void sendPrivate(String nickname, String text) {
