@@ -28,6 +28,7 @@ public class ServidorSocket  implements Runnable{
         while (running) {
             try {
                 Socket socket = serverSocket.accept();
+                System.out.println("Client connected: " + socket.getRemoteSocketAddress());
                 ClientManager manager = new ClientManager(socket, this);
                 new Thread(manager).start();
             } catch (IOException e) {
