@@ -38,14 +38,15 @@ public class ServidorSocket  implements Runnable{
         }
     }
 
-    void register(String nickname, ClientManager manager) {
+    boolean register(String nickname, ClientManager manager) {
         if (nickname == null || nickname.isBlank()
                 || nickname.contains("|") || clients.containsKey(nickname)) {
             manager.send("X|Nickname invalid or already in use");
-            return;
+            return false;
         }
         clients.put(nickname, manager);
         sendToAll("S|* " + nickname + " joined", null);
+        return true;
     }
 
     void unregister(ClientManager manager) {

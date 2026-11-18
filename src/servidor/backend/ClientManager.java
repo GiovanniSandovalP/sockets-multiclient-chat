@@ -28,16 +28,20 @@ public class ClientManager implements Runnable {
             output = new PrintWriter(
                     new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8), true);
 
-            nickname = input.readLine(); 
-            System.out.println("Nickname registered: " + nickname);
+            nickname = input.readLine();
+            if (!server.register(nickname, this)) {
+                socket.close();
+                return;
+            }
 
             String line;
             while ((line = input.readLine()) != null) {
-                System.out.println("[" + nickname + "] " + line);
+                server.route(this, line);
             }
         } catch (IOException e) {
             System.out.println("Client error: " + e.getMessage());
         } finally {
+            server.unregister(this);
             try {
                 socket.close();
             } catch (IOException ignored) {
