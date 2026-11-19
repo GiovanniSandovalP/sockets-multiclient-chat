@@ -1,0 +1,73 @@
+
+8. COMANDOS PARA VER LAS MAQUINAS CONECTADAS
+--------------------------------------------
+Estos comandos son solo de LECTURA: no cambian nada en la red.
+
+--- En WINDOWS (CMD o PowerShell) ---------------------------------
+
+  Ver todas las conexiones TCP con sus direcciones:
+      netstat -a
+
+  Ver solo las conexiones del puerto del chat (6969):
+      netstat -an | findstr 6969
+
+  Ver conexiones activas (ESTABLISHED) del chat, con el PID del proceso:
+      netstat -ano | findstr 6969
+
+  Saber a que programa pertenece un PID (sustituir 1234):
+      tasklist /FI "PID eq 1234"
+
+  Ver la IP de esta maquina (la que deben usar los clientes):
+      ipconfig
+      ipconfig /all            (incluye MAC, DNS, etc.)
+
+  Ver las maquinas de la red local que este equipo conoce:
+      arp -a
+
+  Probar desde un cliente si el servidor responde en el puerto 6969
+  (PowerShell):
+      Test-NetConnection -ComputerName 192.168.1.10 -Port 6969
+
+  Listar las conexiones del chat en PowerShell:
+      Get-NetTCPConnection -LocalPort 6969 -State Established
+
+  Comprobar que el servidor esta escuchando:
+      netstat -an | findstr LISTENING | findstr 6969
+
+  Nota: "netstat -b" muestra el nombre del ejecutable, pero necesita
+  una consola con permisos de administrador.
+
+--- En LINUX / macOS ----------------------------------------------
+
+  Ver todas las conexiones TCP:
+      netstat -a
+      netstat -tn            (solo TCP, con numeros)
+
+  Ver las conexiones del puerto 6969:
+      netstat -tn | grep 6969
+      ss -tnp | grep 6969    (ss muestra tambien el proceso, con sudo)
+
+  Ver que proceso usa el puerto 6969:
+      sudo lsof -i :6969
+
+  Ver las interfaces y la IP de la maquina:
+      ifconfig               (macOS y muchas distros antiguas)
+      ip addr                (Linux moderno)
+
+  Ver las maquinas de la red local conocidas:
+      arp -a
+
+  Probar la conexion desde un cliente:
+      nc -vz 192.168.1.10 6969
+
+--- Ejemplo de lo que se ve en "netstat -an | findstr 6969" --------
+
+  TCP    192.168.1.10:6969     0.0.0.0:0          LISTENING
+  TCP    192.168.1.10:6969     192.168.1.25:51734 ESTABLISHED
+  TCP    192.168.1.10:6969     192.168.1.31:49218 ESTABLISHED
+
+  - La linea LISTENING es el servidor esperando conexiones.
+  - Cada linea ESTABLISHED es un cliente conectado: la IP de la
+    derecha (192.168.1.25, 192.168.1.31) es la maquina del cliente y
+    el numero despues de los dos puntos es el puerto temporal que
+    usa esa conexion.

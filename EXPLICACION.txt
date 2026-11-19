@@ -1,0 +1,225 @@
+=====================================================================
+  EXPLICACION DEL PROYECTO: Chat multicliente con sockets en Java
+=====================================================================
+
+1. QUE ES
+---------
+Es un chat en red de varios usuarios escrito en Java. Un programa
+SERVIDOR escucha conexiones TCP en el puerto 6969. Varios programas
+CLIENTE se conectan a ese servidor, eligen un nickname y pueden:
+
+  - Enviar mensajes a TODOS los usuarios conectados (chat grupal).
+  - Enviar mensajes PRIVADOS a un usuario concreto (/msg).
+
+El servidor reenvia los mensajes y avisa cuando alguien entra o sale.
+Es un ejemplo clasico de comunicacion cliente-servidor con sockets
+(java.net.Socket / java.net.ServerSocket) y multihilo (un hilo por
+cliente).
+
+
+2. ESTRUCTURA DE CARPETAS
+-------------------------
+  Compilador.bat           Compila todo el codigo fuente a la carpeta out\.
+  cliente.properties.example  Plantilla de configuracion del cliente
+                           (IP y puerto del servidor).
+  README.md                Titulo del proyecto (sin mas contenido).
+  .gitignore               Ignora out\ y cliente.properties.
+  out\                     Clases ya compiladas (.class). Se regenera.
+
+  src\servidor\            Programa del servidor
+    Main.java                       Arranca el servidor (sin GUI).
+    backend\ServidorSocket.java     Acepta conexiones, registra usuarios,
+                                    enruta mensajes (grupo y privados).
+    backend\ClientManager.java      Un hilo por cliente: lee lo que envia
+                                    y lo manda al enrutador.
+    backend\models\Cliente.java     Modelo sencillo (ip, nombre). NO se usa.
+    frontend\                       Interfaz grafica (Swing) del servidor.
+                                    Por ahora usa datos de DEMO, no el
+                                    backend real (ver seccion 7).
+
+  src\cliente\             Programa del cliente
+    Main.java                       Arranca el cliente en consola: pide
+                                    nickname y lee lo que escribes.
+    backend\ClientConfig.java       Lee cliente.properties (host y puerto).
+    backend\ClientBackend.java      Abre el socket, envia y recibe lineas.
+    backend\ClientListener.java     Interfaz para avisar de mensajes y de
+                                    desconexion.
+    frontend\                       Interfaz grafica (Swing) del cliente
+                                    (ClientePrueba, PanelChatCliente,
+                                    PanelNombre, etc.). Todavia no esta
+                                    conectada al backend.
+
+
+3. COMO FUNCIONA (PASO A PASO)
+------------------------------
+  a) El servidor abre un ServerSocket en el puerto 6969 y espera
+     conexiones con accept(). Cada vez que entra un cliente, crea un
+     ClientManager en su propio hilo y sigue esperando a otros.
+
+  b) El cliente abre un Socket hacia server.host:server.port (lee esos
+     valores de cliente.properties) y lanza un hilo que escucha al
+     servidor.
+
+  c) Primer mensaje del cliente: su nickname (una linea de texto).
+     El servidor lo valida (ver seccion 4). Si es valido:
+        - Lo registra en un mapa (nickname -> ClientManager).
+        - Avisa a todos: "S|* nombre joined".
+
+  d) Cada linea que escribe el cliente llega al servidor, que decide:
+        - Si empieza con "/msg Nick texto": mensaje privado. Solo
+          reciben ese usuario y el remitente.
+        - Cualquier otra cosa: mensaje de grupo para todos los demas.
+
+  e) Cuando el cliente se desconecta (o escribe "exit"), el servidor lo
+     quita del mapa y avisa: "S|* nombre left".
+
+
+4. PROTOCOLO (formato de las lineas de texto)
+---------------------------------------------
+Todo son lineas de texto en UTF-8, separadas por campos con "|".
+
+  Cliente -> Servidor:
+    nickname                  La primera linea que envia el cliente.
+    texto                     Mensaje de grupo.
+    /msg Nick texto           Mensaje privado.
+
+  Servidor -> Cliente:
+    G|remitente|texto         Mensaje de grupo de otro usuario.
+    P|remitente|texto         Mensaje privado (recibido, o confirmacion
+                              de envio al remitente).
+    S|texto                   Mensaje del sistema (entradas, salidas,
+                              errores de uso como "User not connected").
+    X|texto                   Error fatal: el servidor cierra la conexion.
+                              Ejemplo: "Nickname invalid or already in use".
+
+El cliente separa cada linea en tipo, remitente y texto (split con
+limite 3, para que el texto pueda contener "|" sin romperse).
+
+
+5. REGLAS PARA EL NICKNAME
+--------------------------
+El servidor rechaza el nickname (y cierra la conexion) si:
+  - Es nulo o solo espacios.
+  - Contiene el caracter "|" (rompe el protocolo).
+  - Ya lo usa otro usuario conectado.
+
+
+6. CONFIGURACION Y EJECUCION
+----------------------------
+  1) Ejecutar Compilador.bat. Genera la carpeta out\ con las clases.
+  2) Servidor (en la maquina que hara de servidor):
+        java -cp out servidor.Main
+     Muestra "Servidor escuchando". Debe permitirse el puerto 6969 en
+     el firewall de Windows.
+  3) Cliente: copiar cliente.properties.example como cliente.properties
+     y poner la IP del servidor:
+        server.host=192.168.1.10
+        server.port=6969
+     Luego:
+        java -cp out cliente.Main
+     Escribir el nickname y empezar a chatear.
+     Comandos dentro del chat:
+        texto normal          -> mensaje para todos
+        /msg Nick hola        -> mensaje privado
+        exit                  -> salir
+
+
+7. OBSERVACIONES (lo que notase al leer el codigo)
+--------------------------------------------------
+  - El puerto 6969 esta fijo en ServidorSocket.java; el servidor de
+    consola no lee configuracion.
+  - La GUI del servidor (servidor.frontend.ServidorMain) arranca con
+    AccionesDemo: simula el servidor y NO abre ningun socket. El
+    servidor real es servidor.Main (consola).
+  - La GUI del cliente (ClientePrueba) existe, pero cliente.Main no la
+    llama (startFrontend esta vacio). El cliente real es por consola.
+  - El remitente no recibe eco de su propio mensaje de grupo (sendToAll
+    excluye al emisor). En consola no vera su propio texto.
+  - Cliente.java (modelo) no se usa en ningun lado.
+  - Los mensajes privados a un usuario inexistente devuelven
+    "S|User not connected: nombre".
+  - Hay algunas inconsistencias menores de texto (p. ej. "Client
+    disconnected" aparece en el servidor pero el cliente solo ve
+    "Servidor desconectado" si se corta la conexion).
+
+
+8. COMANDOS PARA VER LAS MAQUINAS CONECTADAS
+--------------------------------------------
+Estos comandos son solo de LECTURA: no cambian nada en la red.
+
+--- En WINDOWS (CMD o PowerShell) ---------------------------------
+
+  Ver todas las conexiones TCP con sus direcciones:
+      netstat -a
+
+  Ver solo las conexiones del puerto del chat (6969):
+      netstat -an | findstr 6969
+
+  Ver conexiones activas (ESTABLISHED) del chat, con el PID del proceso:
+      netstat -ano | findstr 6969
+
+  Saber a que programa pertenece un PID (sustituir 1234):
+      tasklist /FI "PID eq 1234"
+
+  Ver la IP de esta maquina (la que deben usar los clientes):
+      ipconfig
+      ipconfig /all            (incluye MAC, DNS, etc.)
+
+  Ver las maquinas de la red local que este equipo conoce:
+      arp -a
+
+  Probar desde un cliente si el servidor responde en el puerto 6969
+  (PowerShell):
+      Test-NetConnection -ComputerName 192.168.1.10 -Port 6969
+
+  Listar las conexiones del chat en PowerShell:
+      Get-NetTCPConnection -LocalPort 6969 -State Established
+
+  Comprobar que el servidor esta escuchando:
+      netstat -an | findstr LISTENING | findstr 6969
+
+  Nota: "netstat -b" muestra el nombre del ejecutable, pero necesita
+  una consola con permisos de administrador.
+
+--- En LINUX / macOS ----------------------------------------------
+
+  Ver todas las conexiones TCP:
+      netstat -a
+      netstat -tn            (solo TCP, con numeros)
+
+  Ver las conexiones del puerto 6969:
+      netstat -tn | grep 6969
+      ss -tnp | grep 6969    (ss muestra tambien el proceso, con sudo)
+
+  Ver que proceso usa el puerto 6969:
+      sudo lsof -i :6969
+
+  Ver las interfaces y la IP de la maquina:
+      ifconfig               (macOS y muchas distros antiguas)
+      ip addr                (Linux moderno)
+
+  Ver las maquinas de la red local conocidas:
+      arp -a
+
+  Probar la conexion desde un cliente:
+      nc -vz 192.168.1.10 6969
+
+--- Ejemplo de lo que se ve en "netstat -an | findstr 6969" --------
+
+  TCP    192.168.1.10:6969     0.0.0.0:0          LISTENING
+  TCP    192.168.1.10:6969     192.168.1.25:51734 ESTABLISHED
+  TCP    192.168.1.10:6969     192.168.1.31:49218 ESTABLISHED
+
+  - La linea LISTENING es el servidor esperando conexiones.
+  - Cada linea ESTABLISHED es un cliente conectado: la IP de la
+    derecha (192.168.1.25, 192.168.1.31) es la maquina del cliente y
+    el numero despues de los dos puntos es el puerto temporal que
+    usa esa conexion.
+
+
+9. RESUMEN EN UNA FRASE
+-----------------------
+Es un chat por red en Java: un servidor en el puerto 6969 recibe a
+varios clientes, guarda sus nicknames y reenvia mensajes a todos o a
+un usuario concreto, usando lineas de texto separadas por "|".
+=====================================================================
