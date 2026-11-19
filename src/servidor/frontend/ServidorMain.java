@@ -63,7 +63,7 @@ public class ServidorMain extends JFrame {
             this.acciones = new AccionesDemo(this);
         }
 
-        agregarLog("GUI lista (modo demo, sin backend conectado).");
+        agregarLog("GUI lista.");
         setVisible(true);
     }
 

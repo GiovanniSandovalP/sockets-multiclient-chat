@@ -39,14 +39,20 @@ public class ClientManager implements Runnable {
                 server.route(this, line);
             }
         } catch (IOException e) {
-            System.out.println("Client error: " + e.getMessage());
+            if (server.isRunning() && !socket.isClosed()) {
+                server.log("Client error: " + e.getMessage());
+            }
         } finally {
             server.unregister(this);
-            try {
-                socket.close();
-            } catch (IOException ignored) {
-            }
-            System.out.println("Client disconnected: " + socket.getRemoteSocketAddress());
+            closeSocket();
+            server.log("Client disconnected: " + socket.getRemoteSocketAddress());
+        }
+    }
+
+    void closeSocket() {
+        try {
+            socket.close();
+        } catch (IOException ignored) {
         }
     }
 
