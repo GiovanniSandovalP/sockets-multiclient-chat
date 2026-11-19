@@ -1,12 +1,24 @@
 package cliente;
 
-import cliente.backend.ClientBackend;
-import cliente.backend.ClientListener;
 import java.io.IOException;
 import java.util.Scanner;
+import javax.swing.SwingUtilities;
+
+import cliente.backend.ClientBackend;
+import cliente.backend.ClientListener;
+import cliente.frontend.ClientBackendActions;
+import cliente.frontend.ClientePrueba;
 
 public class Main {
     public static void main(String[] args) throws IOException {
+        if (args.length > 0 && args[0].equalsIgnoreCase("cli")) {
+            runCli();
+        } else {
+            runGui();
+        }
+    }
+
+    private static void runCli() throws IOException {
         Scanner keyboard = new Scanner(System.in);
 
         System.out.print("Nickname: ");
@@ -39,6 +51,14 @@ public class Main {
             }
             backend.send(line); 
         }
+    }
+
+    private static void runGui() {
+        SwingUtilities.invokeLater(() -> {
+            ClientBackendActions actions = new ClientBackendActions();
+            ClientePrueba window = new ClientePrueba(actions);
+            actions.setWindow(window);
+        });
     }
 
     private static void startFrontend(ClientBackend backend) {
