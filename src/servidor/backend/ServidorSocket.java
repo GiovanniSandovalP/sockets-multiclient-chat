@@ -6,35 +6,63 @@ import java.net.Socket;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ServidorSocket  implements Runnable{
-    private final int PORT = 6969;
-    private ServerSocket serverSocket;
-    private boolean running;
+public class ServidorSocket implements Runnable {
+    private static final int DEFAULT_PORT = 6969;
+    private final ServerListener listener;
     private final Map<String, ClientManager> clients = new ConcurrentHashMap<>();
+    private volatile ServerSocket serverSocket;
+    private volatile boolean running;
 
     public ServidorSocket() {
+        this(null);
+    }
+
+    public ServidorSocket(ServerListener listener) {
+        this.listener = listener;
     }
 
     public void start() throws IOException {
-        serverSocket = new ServerSocket(PORT);
+        start(DEFAULT_PORT);
+    }
+
+    public void start(int port) throws IOException {
+        serverSocket = new ServerSocket(port);
         running = true;
         new Thread(this).start();
-        System.out.println("Servidor escuchando");
+        log("Servidor escuchando");
+        if (listener != null) {
+            listener.started(port);
+        }
+    }
+
+    public void stop() {
+        running = false;
+        closeServerSocket();
+        for (ClientManager manager : clients.values()) {
+            manager.closeSocket();
+        }
     }
 
     @Override
     public void run() {
-        
-        while (running) {
-            try {
-                Socket socket = serverSocket.accept();
-                System.out.println("Client connected: " + socket.getRemoteSocketAddress());
-                ClientManager manager = new ClientManager(socket, this);
-                new Thread(manager).start();
-            } catch (IOException e) {
-                if (running) {
-                    System.out.println("Error de conexion:" + e.getMessage());
+        try {
+            while (running) {
+                try {
+                    Socket socket = serverSocket.accept();
+                    log("Client connected: " + socket.getRemoteSocketAddress());
+                    ClientManager manager = new ClientManager(socket, this);
+                    new Thread(manager).start();
+                } catch (IOException e) {
+                    if (running) {
+                        log("Error de conexion:" + e.getMessage());
+                    }
                 }
+            }
+        } finally {
+            closeServerSocket();
+            log("Servidor detenido");
+            if (listener != null) {
+                listener.stopped();
             }
         }
     }
@@ -46,6 +74,9 @@ public class ServidorSocket  implements Runnable{
             return false;
         }
         clients.put(nickname, manager);
+        if (listener != null) {
+            listener.clientJoined(nickname);
+        }
         sendToAll("S|* " + nickname + " joined", null);
         return true;
     }
@@ -53,19 +84,42 @@ public class ServidorSocket  implements Runnable{
     void unregister(ClientManager manager) {
         String nickname = manager.getNickname();
         if (nickname != null && clients.remove(nickname, manager)) {
+            if (listener != null) {
+                listener.clientLeft(nickname);
+            }
             sendToAll("S|* " + nickname + " left", null);
         }
     }
 
     void sendToAll(String line, ClientManager except) {
         for (ClientManager manager : clients.values()) {
-            if (manager != except) manager.send(line);
+            if (manager != except) {
+                manager.send(line);
+            }
+        }
+    }
+
+    public void broadcastAdmin(String text) {
+        sendToAll("G|ADMIN|" + text, null);
+    }
+
+    public void sendAdminPrivate(String nickname, String text) {
+        ClientManager to = clients.get(nickname);
+        if (to != null) {
+            to.send("P|ADMIN|" + text);
+        }
+    }
+
+    public void kick(String nickname) {
+        ClientManager manager = clients.get(nickname);
+        if (manager != null) {
+            manager.closeSocket();
         }
     }
 
     void route(ClientManager from, String line) {
         if (line.startsWith("/msg ")) {
-            String[] parts = line.substring(5).split(" ", 2); 
+            String[] parts = line.substring(5).split(" ", 2);
             if (parts.length < 2) {
                 from.send("S|Usage: /msg Nickname message");
                 return;
@@ -79,6 +133,26 @@ public class ServidorSocket  implements Runnable{
             }
         } else {
             sendToAll("G|" + from.getNickname() + "|" + line, from);
+        }
+    }
+
+    boolean isRunning() {
+        return running;
+    }
+
+    void log(String line) {
+        System.out.println(line);
+        if (listener != null) {
+            listener.log(line);
+        }
+    }
+
+    private void closeServerSocket() {
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) {
+                serverSocket.close();
+            }
+        } catch (IOException ignored) {
         }
     }
 }
